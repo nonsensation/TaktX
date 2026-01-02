@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClipVault</title>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --sidebar: #161920;
+            --surface: #1b1e26;
+            --surface-hover: #242832;
+            --input-bg: #0f1115;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #2d3436;
+            --success: #10b981;
+            --danger: #ef4444;
+            --tag-bg: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            --online: #10b981;
+            --offline: #ef4444;
+        }
+
+        [data-theme="light"] {
+            --bg: #f1f5f9;
+            --sidebar: #ffffff;
+            --surface: #ffffff;
+            --surface-hover: #f8fafc;
+            --input-bg: #f1f5f9;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --danger: #ef4444;
+            --tag-bg: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --online: #059669;
+            --offline: #dc2626;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; overflow: hidden; }
+
+        aside { width: 320px; background-color: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 1.5rem; box-sizing: border-box; overflow-y: auto; flex-shrink: 0; z-index: 10; }
+        .logo { font-weight: 800; font-size: 1.5rem; color: var(--primary); margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 700; margin-bottom: 10px; margin-top: 25px; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; padding: 5px; }
+        .sidebar-collapsible { display: block; }
+
+        main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); position: relative; }
+        header { height: 64px; padding: 0 2rem; display: flex; align-items: center; gap: 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+        #libraryContainer { padding: 2rem; overflow-y: auto; height: 100%; box-sizing: border-box; padding-bottom: 80px; }
+
+        .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; width: 100%; display: inline-flex; justify-content: center; align-items: center; }
+        .btn:hover { background: var(--primary-hover); opacity: 0.9; }
+        .btn.secondary { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); }
+        .btn.danger { background: var(--danger); }
+        .btn-small { padding: 4px 8px; font-size: 0.8rem; width: auto; }
+
+        input, select, textarea { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; width: 100%; box-sizing: border-box; font-family: inherit; margin-bottom: 10px; font-size: 0.9rem; }
+        input:focus { outline: none; border-color: var(--primary); }
+
+        .profile-selector { margin-bottom: 20px; }
+
+        /* Timeline Trimmer */
+        .timeline-container { position: relative; height: 50px; margin: 15px 0; user-select: none; background: rgba(0,0,0,0.2); border-radius: 4px; }
+        .timeline-track { position: absolute; top: 0; bottom: 0; left: 0; right: 0; border-radius: 4px; overflow: hidden; background-size: cover; background-position: center; opacity: 0.8; }
+        .timeline-overlay { position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); pointer-events: none; }
+        .timeline-selection { position: absolute; top: 0; bottom: 0; background: rgba(79, 70, 229, 0.2); border: 1px solid var(--primary); border-top: 3px solid var(--primary); border-bottom: 3px solid var(--primary); pointer-events: none; box-sizing: border-box; }
+        .timeline-handle { position: absolute; top: 0; bottom: 0; width: 16px; background: #e2e8f0; cursor: col-resize; z-index: 10; border-radius: 2px; box-shadow: 0 0 5px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; transform: translateX(-50%); }
+        .timeline-handle::after { content:'||'; color: #000; font-size: 8px; font-weight: bold; }
+        .timeline-handle:hover { background: #fff; }
+        .timeline-tooltip { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: var(--surface); padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; pointer-events: none; white-space: nowrap; border: 1px solid var(--border); box-shadow: var(--shadow); opacity: 0; transition: opacity 0.2s; }
+        .timeline-handle:hover .timeline-tooltip, .timeline-handle:active .timeline-tooltip { opacity: 1; }
+
+        /* Grid & Card */
+        .clip-grid { display: grid; gap: 1.5rem; }
+        .view-list .clip-grid { grid-template-columns: 1fr; }
+        .view-list .clip-card { flex-direction: row; height: 120px; }
+        .view-list .thumb-wrapper { width: 200px; padding-top: 0; height: 100%; }
+        .view-list .thumb-wrapper video, .view-list .thumb-wrapper img { position: relative; }
+        .view-small .clip-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+        .view-medium .clip-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+        .view-large .clip-grid { grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); }
+
+        .clip-card { background-color: var(--surface); border-radius: 12px; overflow: hidden; transition: transform 0.2s; border: 1px solid var(--border); cursor: pointer; display: flex; flex-direction: column; box-shadow: var(--shadow); position: relative; }
+        .clip-card:hover { transform: translateY(-4px); border-color: var(--primary); }
+        .clip-card.selected { border: 2px solid var(--primary); transform: translateY(-2px); }
+        .clip-card.selected::after { content: "✓"; position: absolute; top: 10px; right: 10px; background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 20; }
+
+        .thumb-wrapper { position: relative; width: 100%; padding-top: 56.25%; background: #000; }
+        .thumb-wrapper video, .thumb-wrapper img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .clip-info { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+        .clip-title { font-weight: 700; font-size: 1rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tag-pill { background: var(--tag-bg); color: var(--text); font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 4px; }
+        .meta-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: auto; }
+
+        /* Group Details */
+        details.group-container { border: 2px dashed var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 2rem; background: rgba(0,0,0,0.02); }
+        details.group-container[open] { padding-bottom: 1.5rem; }
+        summary.group-header { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; user-select: none; }
+        summary.group-header::-webkit-details-marker { display: none; }
+        
+        .group-label { color: var(--primary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; border: 1px solid var(--border); border-radius: 100px; padding: 2px 12px; background: var(--surface); display:flex; align-items:center; gap:8px; }
+        .group-chevron { transition: transform 0.2s; font-size: 0.8rem; }
+        details[open] .group-chevron { transform: rotate(90deg); }
+        .edit-group-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0 5px; }
+        .edit-group-btn:hover { color: var(--text); }
+
+        /* Progress Bar */
+        .dl-progress-bar { width: 100%; height: 4px; background: var(--surface); border-radius: 2px; margin-top: 5px; overflow: hidden; display:none;}
+        .dl-progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+        .dl-active .dl-progress-bar { display: block; }
+        
+        .dl-progress-fill.indeterminate {
+            width: 100% !important;
+            background: repeating-linear-gradient(45deg, var(--primary), var(--primary) 10px, var(--surface) 10px, var(--surface) 20px);
+            background-size: 200% 100%;
+            animation: stripeMove 1s linear infinite;
+        }
+        @keyframes stripeMove { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+        /* Bulk Bar */
+        .bulk-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); padding: 10px 20px; border-radius: 50px; display: flex; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 50; align-items: center; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translate(-50%, 100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+        /* Modals */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); backdrop-filter: blur(5px); align-items: center; justify-content: center; }
+        .modal-content { background-color: var(--surface); width: 95vw; height: 92vh; border-radius: 12px; display: flex; overflow: hidden; border: 1px solid var(--border); }
+        .modal-player-col { flex: 3; background: #000; display: flex; align-items: center; justify-content: center; }
+        .modal-player-col video { width: 100%; height: 100%; outline: none; }
+        .modal-info-col { flex: 1; min-width: 350px; padding: 2rem; overflow-y: auto; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+
+        .popup-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 200; justify-content: center; align-items: center; }
+        .popup-content { background: var(--surface); padding: 2rem; border-radius: 12px; width: 500px; border: 1px solid var(--border); max-height: 85vh; overflow-y: auto; position: relative;}
+
+        .tag-editor { border: 1px solid var(--border); background: var(--input-bg); border-radius: 6px; padding: 5px; display: flex; flex-wrap: wrap; gap: 4px; min-height: 40px; position: relative;}
+        .tag-chip { background: var(--primary); color: white; padding: 2px 8px; border-radius: 100px; font-size: 0.8rem; display: flex; gap: 6px; align-items: center; }
+        .tag-input { border: none; background: transparent; padding: 4px; flex: 1; min-width: 60px; margin: 0; }
+        .tag-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; max-height: 150px; overflow-y: auto; z-index: 300; display: none; padding: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .suggestion-item { padding: 5px 10px; cursor: pointer; font-size: 0.85rem; border-radius: 4px; }
+        .suggestion-item:hover { background: var(--surface-hover); }
+        .group-dropdown-container { position: relative; }
+        .status-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+
+        @media (max-width: 850px) {
+            body { flex-direction: column; height: 100dvh; }
+            aside { width: 100%; height: auto; min-height: 60px; padding: 1rem; border-right: none; border-bottom: 1px solid var(--border); }
+            .logo { margin-bottom: 0; }
+            .mobile-menu-btn { display: inline-block; margin-left: 10px; background: none; border: none; color: var(--text); font-size: 1.5rem; }
+            .sidebar-collapsible { display: none; margin-top: 20px; max-height: 60vh; overflow-y: auto; border-top: 1px solid var(--border); padding-top: 10px; }
+            aside.expanded .sidebar-collapsible { display: block; }
+            aside.expanded { height: auto; border-bottom: 2px solid var(--primary); }
+            .modal-content { width: 100vw; height: 100dvh; flex-direction: column; border-radius: 0; border: none; }
+            .modal-player-col { flex: 0 0 35vh; min-height: 200px; }
+            .modal-info-col { border-left: none; border-top: 1px solid var(--border); padding: 1.5rem; min-width: 0; }
+            .popup-content { width: 90%; max-width: 400px; }
+            #dlModal .popup-content { width: 95%; max-width: 95%; }
+            header { padding: 0 1rem; gap: 10px; }
+            header input#search { width: 100%; min-width: 50px; }
+            .view-medium .clip-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+            .view-large .clip-grid { grid-template-columns: 1fr; }
+            .bulk-bar { width: 90%; flex-wrap: wrap; justify-content: center; bottom: 10px; }
+        }
+    </style>
+    <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body class="view-medium">
+
+<datalist id="groupListSuggestions"></datalist>
+
+<aside>
+    <div class="logo">
+        ClipVault
+        <div style="display:flex; align-items:center;">
+            <button onclick="toggleTheme()" class="btn secondary btn-small" style="width:auto">◐</button>
+            <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+        </div>
+    </div>
+
+    <div class="sidebar-collapsible">
+        <div class="profile-selector">
+            <label style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Profile</label>
+            <select id="profileSelect" onchange="switchProfile(this.value)" style="margin-top:5px; font-weight:600;"></select>
+            <button class="btn secondary btn-small" onclick="openProfileManager()">Manage Profiles</button>
+        </div>
+
+        <hr style="border:0; border-top:1px solid var(--border); width:100%; margin: 10px 0;">
+
+        <div class="section-title" style="margin-top:0">Add Content</div>
+        <div style="display: flex; gap: 6px;">
+            <input type="text" id="dlUrl" placeholder="YouTube URL..." style="margin:0">
+            <button class="btn" onclick="analyzeUrl()" style="width: auto;">→</button>
+        </div>
+        
+        <div class="section-title">Active Downloads</div>
+        <div id="activeDownloadsList"></div>
+
+        <div style="margin-top: auto; display:flex; flex-direction:column; gap:10px; padding-top:20px;">
+            <button id="selectModeBtn" class="btn secondary" onclick="toggleSelectionMode()">Select / Bulk Edit</button>
+            <button class="btn secondary" onclick="checkAllAvailability()">Check All Availability</button>
+            <button class="btn secondary" onclick="openSettings()">Global Settings</button>
+        </div>
+    </div>
+</aside>
+
+<main>
+    <header>
+        <div style="flex:1; max-width: 400px; position:relative;">
+            <input type="text" id="search" placeholder="Search clips, tags..." style="margin:0; padding-left: 30px;" onkeyup="filterLibrary()">
+            <span style="position:absolute; left:10px; top:10px; color:var(--text-muted)">🔍</span>
+        </div>
+        
+        <div style="display:flex; gap:5px; border: 1px solid var(--border); padding:2px; border-radius:6px;">
+            <button class="btn secondary btn-small" onclick="setView('list')" title="List">≣</button>
+            <button class="btn secondary btn-small" onclick="setView('small')" title="Small">▦</button>
+            <button class="btn secondary btn-small" onclick="setView('medium')" title="Medium">⊞</button>
+            <button class="btn secondary btn-small" onclick="setView('large')" title="Large">⬜</button>
+        </div>
+        
+        <select id="sortOrder" style="width: auto; margin:0;" onchange="loadLibrary()">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+        </select>
+    </header>
+
+    <div id="libraryContainer"></div>
+    
+    <!-- BULK ACTIONS BAR -->
+    <div id="bulkBar" class="bulk-bar" style="display:none;">
+        <span id="bulkCount" style="font-weight:bold; margin-right:10px;">0 Selected</span>
+        <button class="btn secondary btn-small" onclick="bulkAddTags()">Add Tags</button>
+        <button class="btn secondary btn-small" onclick="bulkMoveGroup()">Move Group</button>
+        <button class="btn secondary btn-small" onclick="bulkMoveProfile()">Set Profile</button>
+        <button class="btn danger btn-small" onclick="bulkDelete()">Delete</button>
+        <div style="width:1px; height:20px; background:var(--border); margin:0 5px;"></div>
+        <button class="btn secondary btn-small" onclick="toggleSelectionMode()">Cancel</button>
+    </div>
+</main>
+
+<!-- MODALS -->
+
+<!-- BULK EDIT MODAL -->
+<div id="bulkModal" class="popup-overlay">
+    <div class="popup-content">
+        <h3 id="bulkTitle">Bulk Action</h3>
+        <div id="bulkContent"></div>
+        <div style="margin-top: 20px; text-align: right; display:flex; justify-content:end; gap:10px;">
+            <button class="btn secondary" onclick="closePopup('bulkModal')" style="width:auto">Cancel</button>
+            <button class="btn" id="bulkConfirmBtn" style="width:auto">Apply</button>
+        </div>
+    </div>
+</div>
+
+<!-- ANALYZE / DOWNLOAD -->
+<div id="dlModal" class="popup-overlay">
+    <div class="popup-content" style="width: 700px; max-width:90vw;">
+        <h3 id="dlTitle" style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:10px;">Download Options</h3>
+        <div id="dlOptionsForm" style="display:flex; flex-direction:column; gap:15px;"></div>
+        <div style="margin-top: 20px; text-align: right; display:flex; justify-content:end; gap:10px;">
+            <button class="btn secondary" onclick="closeDlModal()" style="width:auto">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settingsModal" class="popup-overlay" onclick="if(event.target===this) closePopup('settingsModal')">
+    <div class="popup-content">
+        <h3>Global Settings</h3>
+        <div style="margin-bottom:20px;">
+            <button class="btn secondary" onclick="openGroupManager()">Manage All Groups</button>
+        </div>
+        <h4>Global Tags</h4>
+        <div id="settingsTags" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:15px;"></div>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="newTagInput" placeholder="New tag name" style="margin:0">
+            <button class="btn" onclick="addNewGlobalTag()" style="width:auto">Add</button>
+        </div>
+        <div style="margin-top:20px; text-align:right;">
+             <button class="btn secondary" onclick="closePopup('settingsModal')" style="width:auto">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- PROFILE MANAGER -->
+<div id="profileModal" class="popup-overlay" onclick="if(event.target===this) closePopup('profileModal')">
+    <div class="popup-content">
+        <h3>Manage Profiles</h3>
+        <div id="profileList" style="margin-bottom:20px;"></div>
+        <div style="display:flex; gap:10px; border-top:1px solid var(--border); padding-top:15px;">
+            <input type="text" id="newProfileName" placeholder="New Profile Name" style="margin:0">
+            <button class="btn" onclick="createNewProfile()" style="width:auto">Create</button>
+        </div>
+        <div style="margin-top:20px; text-align:right;">
+             <button class="btn secondary" onclick="closePopup('profileModal')" style="width:auto">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- GROUP MANAGER -->
+<div id="groupModal" class="popup-overlay" onclick="if(event.target===this) closePopup('groupModal')">
+    <div class="popup-content">
+        <h3>Manage Groups</h3>
+        <div style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+             <label style="font-size:0.75rem; color:var(--text-muted)">Create New Group</label>
+             <div style="display:flex; gap:10px;">
+                 <input type="text" id="newGroupTitleInput" placeholder="Group Title" style="margin:0">
+                 <button class="btn" onclick="createNewGroupManual()">Create</button>
+             </div>
+        </div>
+        <div id="groupList" style="max-height: 400px; overflow-y:auto; margin-bottom:20px;"></div>
+        <div style="margin-top:20px; text-align:right;">
+             <button class="btn secondary" onclick="closePopup('groupModal')" style="width:auto">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- SINGLE GROUP EDIT -->
+<div id="singleGroupModal" class="popup-overlay">
+    <div class="popup-content">
+        <h3>Edit Group</h3>
+        <input type="hidden" id="sgId">
+        <label style="font-size:0.8rem">Title</label>
+        <input type="text" id="sgTitle">
+        <label style="font-size:0.8rem">Description</label>
+        <textarea id="sgDesc" rows="3"></textarea>
+        <div style="display:flex; justify-content:space-between; margin-top:20px;">
+            <button class="btn danger" style="width:auto" onclick="deleteSingleGroup()">Delete Group</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn secondary" style="width:auto" onclick="closePopup('singleGroupModal')">Cancel</button>
+                <button class="btn" style="width:auto" onclick="saveSingleGroup()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIRM -->
+<div id="confirmModal" class="popup-overlay" style="z-index: 250;">
+    <div class="popup-content" style="width: 350px;">
+        <h3 style="margin-top:0">Confirm Action</h3>
+        <p id="confirmMessage">Are you sure?</p>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+            <button id="confirmBtnYes" class="btn danger">Yes</button>
+            <button id="confirmBtnNo" class="btn secondary">No</button>
+        </div>
+    </div>
+</div>
+
+<!-- DETAIL -->
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-player-col">
+            <video id="mainPlayer" controls></video>
+        </div>
+        <div class="modal-info-col">
+            <h3 style="margin:0 0 10px 0;">Edit Metadata</h3>
+            
+            <label style="font-size:0.8rem; color:var(--text-muted)">Title</label>
+            <input type="text" id="mCustomTitle" placeholder="Custom Display Title">
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+                <span id="mOrigTitle"></span> 
+                <span id="mStatusBadge" class="status-badge"></span>
+            </div>
+            
+            <label style="font-size:0.8rem; color:var(--text-muted)">Description</label>
+            <textarea id="mDesc" rows="4"></textarea>
+
+            <label style="font-size:0.8rem; color:var(--text-muted)">Tags</label>
+            <div class="tag-editor">
+                <div id="mChipContainer" style="display:contents"></div>
+                <input type="text" id="mTagInput" class="tag-input" placeholder="Add tag...">
+                <div id="tagSuggestions" class="tag-suggestions"></div>
+            </div>
+
+            <label style="font-size:0.8rem; color:var(--text-muted); margin-top:10px; display:block">Profile</label>
+            <select id="mProfileSelect"></select>
+
+            <label style="font-size:0.8rem; color:var(--text-muted); margin-top:10px; display:block">Group</label>
+            <div class="group-dropdown-container">
+                <input type="text" id="mGroupInput" placeholder="Type group name..." autocomplete="off">
+                <div id="mGroupSuggestions" class="tag-suggestions"></div>
+            </div>
+
+            <!-- New File Info Section -->
+            <hr style="border:0; border-top:1px solid var(--border); margin: 20px 0;">
+            <h4 style="margin:0 0 10px 0; font-size:0.9rem; color:var(--text-muted); text-transform:uppercase;">File Details</h4>
+            <div style="display:grid; grid-template-columns: auto 1fr; gap: 8px; font-size: 0.85rem; color: var(--text);">
+                <span style="color:var(--text-muted)">Original URL:</span>
+                <div style="display:flex; align-items:center; gap:5px; overflow:hidden;">
+                    <a id="mOrigUrl" href="#" target="_blank" style="color:var(--primary); text-decoration:none; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;"></a>
+                    <button class="btn secondary btn-small" onclick="copyOrigUrl(event)" title="Copy" style="padding: 1px 6px; font-size: 0.8rem;">📋</button>
+                </div>
+                <span style="color:var(--text-muted)">File ID:</span><span id="mFileId" style="font-family:monospace; user-select:all;"></span>
+                <span style="color:var(--text-muted)">Filename:</span><span id="mFilename" style="font-family:monospace; word-break:break-all;"></span>
+                <span style="color:var(--text-muted)">Size:</span><span id="mFileSize"></span>
+                <span style="color:var(--text-muted)">Quality:</span><span id="mQuality"></span>
+                <span style="color:var(--text-muted)">Created:</span><span id="mCreated"></span>
+                <span style="color:var(--text-muted)">Range:</span><span id="mRange"></span>
+            </div>
+
+            <div style="margin-top: auto; display: flex; gap: 10px; padding-top: 20px;">
+                <button class="btn" onclick="saveMeta()">Save</button>
+                <button class="btn danger" onclick="confirmDeleteClip()" style="width:auto">Delete</button>
+                <button class="btn secondary" onclick="closePopup('detailModal'); document.getElementById('mainPlayer').pause(); document.getElementById('mainPlayer').src=''" style="width:auto">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global Variables ---
+    let settings = { profiles: [], tags: [] };
+    let groups = {};
+    let libraryData = [];
+    let currentProfile = 'default';
+    let currentClipId = null;
+    let currentTags = [];
+    let dlTags = [];
+    let ytPlayer = null; 
+    let currentAnalysis = null; 
+    let activeDownloadMap = {}; 
+    
+    // Bulk Edit State
+    let isSelectionMode = false;
+    let selectedClipIds = new Set();
+    let collapsedGroups = new Set(); 
+
+    // --- Init ---
+    window.onload = async () => {
+        applyTheme();
+        await refreshAllData();
+        setInterval(refreshStatus, 1500);
+        setupTagEditor('mTagInput', 'tagSuggestions', 'mChipContainer', (tags) => currentTags = tags);
+        setupGroupAutocomplete('mGroupInput', 'mGroupSuggestions');
+    };
+
+    // --- Helpers ---
+    function formatTime(seconds) {
+        if(isNaN(seconds)) return '00:00:00';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
+    }
+    function parseTime(str) {
+        if(!str) return 0;
+        const p = str.split(':').map(Number);
+        if(p.length === 3) return p[0]*3600 + p[1]*60 + p[2];
+        if(p.length === 2) return p[0]*60 + p[1];
+        if(p.length === 1) return p[0];
+        return 0;
+    }
+    function toggleSidebar() { document.querySelector('aside').classList.toggle('expanded'); }
+    function applyTheme() { document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'dark'); }
+    function toggleTheme() {
+        const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('theme', next); applyTheme();
+    }
+    function setView(mode) { document.body.className = `view-${mode}`; }
+    async function api(path, method="GET", body=null) {
+        const opts = { method, headers: {'Content-Type': 'application/json'} };
+        if(body) opts.body = JSON.stringify(body);
+        return (await fetch('/api'+path, opts)).json();
+    }
+    function showConfirm(msg, onYes) {
+        const modal = document.getElementById('confirmModal');
+        document.getElementById('confirmMessage').innerText = msg;
+        modal.style.display = 'flex';
+        const yesBtn = document.getElementById('confirmBtnYes');
+        const noBtn = document.getElementById('confirmBtnNo');
+        const newYes = yesBtn.cloneNode(true);
+        const newNo = noBtn.cloneNode(true);
+        yesBtn.parentNode.replaceChild(newYes, yesBtn);
+        noBtn.parentNode.replaceChild(newNo, noBtn);
+        newYes.onclick = () => { modal.style.display='none'; onYes(); };
+        newNo.onclick = () => { modal.style.display='none'; };
+    }
+    function formatBytes(bytes, decimals = 2) {
+        if (!+bytes) return '0 B';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+
+    // --- Bulk Selection ---
+    function toggleSelectionMode() {
+        isSelectionMode = !isSelectionMode;
+        selectedClipIds.clear();
+        document.getElementById('selectModeBtn').style.background = isSelectionMode ? 'var(--primary)' : '';
+        document.getElementById('selectModeBtn').style.color = isSelectionMode ? 'white' : '';
+        updateBulkBar();
+        renderLibrary();
+    }
+    function toggleClipSelection(id) {
+        if(selectedClipIds.has(id)) selectedClipIds.delete(id);
+        else selectedClipIds.add(id);
+        updateBulkBar();
+        const card = document.querySelector(`.clip-card[data-id="${id}"]`);
+        if(card) {
+            if(selectedClipIds.has(id)) card.classList.add('selected');
+            else card.classList.remove('selected');
+        }
+    }
+    function updateBulkBar() {
+        const bar = document.getElementById('bulkBar');
+        if(isSelectionMode && selectedClipIds.size > 0) {
+            bar.style.display = 'flex';
+            document.getElementById('bulkCount').innerText = `${selectedClipIds.size} Selected`;
+        } else { bar.style.display = 'none'; }
+    }
+    function bulkAddTags() {
+        const tagsStr = prompt("Enter tags (comma separated):");
+        if(!tagsStr) return;
+        const newTags = tagsStr.split(',').map(t=>t.trim()).filter(t=>t);
+        if(newTags.length === 0) return;
+        processBulkUpdate(async (clip) => {
+            const current = (clip.tags || "").split(',').filter(t=>t);
+            const combined = [...new Set([...current, ...newTags])];
+            return { id: clip.id, tags: combined.join(',') };
+        });
+    }
+    function bulkMoveGroup() {
+        const modal = document.getElementById('bulkModal');
+        const content = document.getElementById('bulkContent');
+        document.getElementById('bulkTitle').innerText = "Move to Group";
+        content.innerHTML = `
+            <label>Select or Create Group:</label>
+            <div class="group-dropdown-container">
+                <input type="text" id="bulkGroupInput" placeholder="Group name..." autocomplete="off">
+                <div id="bulkGroupSuggestions" class="tag-suggestions"></div>
+            </div>`;
+        setupGroupAutocomplete('bulkGroupInput', 'bulkGroupSuggestions');
+        document.getElementById('bulkConfirmBtn').onclick = async () => {
+            const gName = document.getElementById('bulkGroupInput').value.trim();
+            const gid = await resolveGroupId(gName);
+            await processBulkUpdate(async (clip) => ({ id: clip.id, group_id: gid }));
+            closePopup('bulkModal');
+        };
+        modal.style.display = 'flex';
+    }
+    function bulkMoveProfile() {
+        const modal = document.getElementById('bulkModal');
+        const content = document.getElementById('bulkContent');
+        document.getElementById('bulkTitle').innerText = "Set Profile";
+        content.innerHTML = `<label>Select Profile:</label><select id="bulkProfileSelect">${settings.profiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>`;
+        document.getElementById('bulkConfirmBtn').onclick = async () => {
+            const pid = document.getElementById('bulkProfileSelect').value;
+            await processBulkUpdate(async (clip) => ({ id: clip.id, profile_id: pid }));
+            closePopup('bulkModal');
+        };
+        modal.style.display = 'flex';
+    }
+    function bulkDelete() {
+        showConfirm(`Delete ${selectedClipIds.size} clips?`, async () => {
+            const ids = Array.from(selectedClipIds);
+            for (let id of ids) {
+                const card = document.querySelector(`.clip-card[data-id="${id}"]`);
+                if(card) {
+                    const vid = card.querySelector('video');
+                    if(vid) { vid.src = ""; vid.load(); }
+                    card.remove();
+                }
+                await api('/delete', 'POST', { id });
+            }
+            selectedClipIds.clear(); updateBulkBar(); refreshAllData();
+        });
+    }
+    async function processBulkUpdate(transformFn) {
+        const ids = Array.from(selectedClipIds);
+        for(let id of ids) {
+            const clip = libraryData.find(c => c.id === id);
+            if(clip) {
+                const updateData = await transformFn(clip);
+                await api('/update', 'POST', updateData);
+            }
+        }
+        selectedClipIds.clear(); updateBulkBar(); refreshAllData();
+    }
+
+    // --- Input Logic ---
+    function setupGroupAutocomplete(inputId, suggestionId) {
+        const input = document.getElementById(inputId);
+        const cloud = document.getElementById(suggestionId);
+        const showGroups = (val) => {
+            const filter = val.toLowerCase();
+            const matches = Object.keys(groups).filter(gid => groups[gid].title.toLowerCase().includes(filter)).map(gid => groups[gid]);
+            if(matches.length > 0) {
+                cloud.innerHTML = matches.map(g => `<div class="suggestion-item" onclick="selectGroup('${inputId}', '${g.title.replace(/'/g, "\\'")}')">${g.title}</div>`).join('');
+                cloud.style.display = 'block';
+            } else { cloud.style.display = 'none'; }
+        };
+        input.addEventListener('focus', () => showGroups(input.value));
+        input.addEventListener('input', (e) => showGroups(e.target.value));
+        document.addEventListener('click', (e) => { if(!e.target.closest('.group-dropdown-container')) cloud.style.display = 'none'; });
+    }
+    window.selectGroup = function(inputId, title) {
+        document.getElementById(inputId).value = title;
+        const container = document.getElementById(inputId).nextElementSibling;
+        if(container) container.style.display = 'none';
+    }
+
+    function setupTagEditor(inputId, suggestionId, chipId, updateCallback) {
+        const input = document.getElementById(inputId);
+        const cloud = document.getElementById(suggestionId);
+        input.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') {
+                const val = e.target.value.trim().replace(',', '');
+                const tagsRef = inputId === 'mTagInput' ? currentTags : dlTags;
+                if(val && !tagsRef.includes(val)) {
+                    tagsRef.push(val); renderChips(chipId, tagsRef, updateCallback);
+                    e.target.value = ''; cloud.style.display = 'none';
+                }
+            }
+        });
+        input.addEventListener('focus', () => showTagSuggestions(input.value, inputId));
+        input.addEventListener('input', (e) => showTagSuggestions(e.target.value, inputId));
+        document.addEventListener('click', (e) => { if(!e.target.closest('.tag-editor')) cloud.style.display = 'none'; });
+    }
+    function renderChips(containerId, tags, cb) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = tags.map((t,i) => `<span class="tag-chip">${t} <span style="cursor:pointer" onclick="removeTag('${containerId}', ${i})">×</span></span>`).join('');
+        if(cb) cb(tags);
+    }
+    window.removeTag = function(containerId, index) {
+        if(containerId === 'mChipContainer') { currentTags.splice(index, 1); renderChips(containerId, currentTags); } 
+        else { dlTags.splice(index, 1); renderChips(containerId, dlTags); }
+    }
+    function showTagSuggestions(inputVal, inputId) {
+        const cloudId = inputId === 'mTagInput' ? 'tagSuggestions' : 'dlTagSuggestions';
+        const cloud = document.getElementById(cloudId);
+        const currentRef = inputId === 'mTagInput' ? currentTags : dlTags;
+        if(!inputVal && settings.tags.length === 0) { cloud.style.display = 'none'; return; }
+        const filter = inputVal.toLowerCase();
+        const matches = settings.tags.filter(t => t.toLowerCase().includes(filter) && !currentRef.includes(t));
+        if(matches.length > 0) {
+            cloud.innerHTML = matches.map(t => `<div class="suggestion-item" onclick="addSuggestedTag('${inputId}', '${t}')">${t}</div>`).join('');
+            cloud.style.display = 'block';
+        } else { cloud.style.display = 'none'; }
+    }
+    window.addSuggestedTag = function(inputId, tag) {
+        const tagsRef = inputId === 'mTagInput' ? currentTags : dlTags;
+        const chipId = inputId === 'mTagInput' ? 'mChipContainer' : 'dlChipContainer';
+        const cloudId = inputId === 'mTagInput' ? 'tagSuggestions' : 'dlTagSuggestions';
+        if(!tagsRef.includes(tag)) {
+            tagsRef.push(tag); renderChips(chipId, tagsRef);
+            document.getElementById(inputId).value = '';
+            document.getElementById(cloudId).style.display = 'none';
+        }
+    }
+
+    // --- Timeline & Sliders ---
+    function initTimelineSlider(duration, startId, endId, trackId, overlayId, selectionId, handleLeftId, handleRightId) {
+        const track = document.getElementById(trackId);
+        const selection = document.getElementById(selectionId);
+        const handleL = document.getElementById(handleLeftId);
+        const handleR = document.getElementById(handleRightId);
+        const inputStart = document.getElementById(startId);
+        const inputEnd = document.getElementById(endId);
+        let state = { start: 0, end: duration };
+        let isDragging = null; 
+        const updateUI = () => {
+            const pctStart = (state.start / duration) * 100;
+            const pctEnd = (state.end / duration) * 100;
+            handleL.style.left = `${pctStart}%`;
+            handleR.style.left = `${pctEnd}%`;
+            selection.style.left = `${pctStart}%`;
+            selection.style.width = `${pctEnd - pctStart}%`;
+            handleL.innerHTML = `<span class="timeline-tooltip">${formatTime(state.start)}</span>`;
+            handleR.innerHTML = `<span class="timeline-tooltip">${formatTime(state.end)}</span>`;
+            if(document.activeElement !== inputStart) inputStart.value = formatTime(state.start);
+            if(document.activeElement !== inputEnd) inputEnd.value = formatTime(state.end);
+        };
+        const getSecondsFromEvent = (e) => {
+            const rect = track.getBoundingClientRect();
+            const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            return (x / rect.width) * duration;
+        };
+        const onDrag = (e) => {
+            if(!isDragging) return;
+            const secs = getSecondsFromEvent(e);
+            if(isDragging === 'L') {
+                state.start = Math.min(secs, state.end - 1); 
+                if(state.start < 0) state.start = 0;
+                if(ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(state.start, true);
+            } else {
+                state.end = Math.max(secs, state.start + 1);
+                if(state.end > duration) state.end = duration;
+                if(ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(state.end, true);
+            }
+            updateUI();
+        };
+        handleL.addEventListener('mousedown', (e) => { isDragging = 'L'; e.preventDefault(); });
+        handleR.addEventListener('mousedown', (e) => { isDragging = 'R'; e.preventDefault(); });
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', () => { isDragging = null; });
+        const syncFromInputs = () => {
+            const s = parseTime(inputStart.value);
+            const e = parseTime(inputEnd.value);
+            if(s >= 0 && s < e && e <= duration) {
+                state.start = s; state.end = e;
+                updateUI();
+                if(ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(s, true);
+            }
+        };
+        inputStart.addEventListener('change', syncFromInputs);
+        inputEnd.addEventListener('change', syncFromInputs);
+        updateUI();
+    }
+
+    // --- Main Rendering ---
+    function renderProfileSelect() {
+        document.getElementById('profileSelect').innerHTML = settings.profiles.map(p => 
+            `<option value="${p.id}" ${p.id===currentProfile?'selected':''}>${p.name}</option>`
+        ).join('');
+    }
+
+    async function refreshAllData() {
+        settings = await api('/settings');
+        groups = await api('/groups');
+        libraryData = await api('/library');
+        if (!settings.profiles.find(p => p.id === currentProfile)) currentProfile = settings.profiles[0]?.id || 'default';
+        renderProfileSelect();
+        renderLibrary();
+    }
+    
+    // --- Library Render ---
+    function renderLibrary() {
+        const container = document.getElementById('libraryContainer');
+        const filter = document.getElementById('search').value.toLowerCase();
+        
+        container.innerHTML = '';
+        
+        const profileClips = libraryData.filter(c => c.profile_id === currentProfile);
+        const grouped = {};
+        profileClips.forEach(clip => {
+            const gid = clip.group_id || `single-${clip.id}`;
+            if(!grouped[gid]) grouped[gid] = [];
+            grouped[gid].push(clip);
+        });
+
+        Object.keys(grouped).forEach(gid => {
+            const groupClips = grouped[gid];
+            const visible = groupClips.some(c => (c.custom_title || c.title).toLowerCase().includes(filter) || (c.tags||"").includes(filter));
+            if(!visible) return;
+
+            const groupInfo = groups[gid];
+            if (groupInfo) {
+                const isOpen = !collapsedGroups.has(gid);
+                const details = document.createElement('details');
+                details.className = 'group-container';
+                if(isOpen) details.open = true;
+                
+                details.addEventListener('toggle', () => {
+                    if(details.open) collapsedGroups.delete(gid);
+                    else collapsedGroups.add(gid);
+                });
+
+                const summary = document.createElement('summary');
+                summary.className = 'group-header';
+                summary.innerHTML = `
+                    <span class="group-chevron">▶</span>
+                    <span class="group-label">${groupInfo.title}</span>
+                    <span style="font-size:0.8rem; color:var(--text-muted)">${groupClips.length} clips</span>
+                    <button class="edit-group-btn" title="Edit Group" onclick="editGroup(event, '${gid}')">✎</button>
+                `;
+                
+                const grid = document.createElement('div');
+                grid.className = 'clip-grid';
+                groupClips.forEach(c => grid.appendChild(createCard(c)));
+                
+                details.appendChild(summary);
+                details.appendChild(grid);
+                container.appendChild(details);
+            } 
+            else {
+                if(container.lastElementChild && container.lastElementChild.classList.contains('clip-grid')) {
+                    groupClips.forEach(c => container.lastElementChild.appendChild(createCard(c)));
+                } else {
+                    const grid = document.createElement('div');
+                    grid.className = 'clip-grid';
+                    grid.style.marginBottom = "2rem";
+                    groupClips.forEach(c => grid.appendChild(createCard(c)));
+                    container.appendChild(grid);
+                }
+            }
+        });
+    }
+
+    function createCard(clip) {
+        const div = document.createElement('div');
+        div.className = 'clip-card';
+        if(isSelectionMode && selectedClipIds.has(clip.id)) div.classList.add('selected');
+        div.dataset.id = clip.id;
+        
+        div.onclick = (e) => {
+            if(isSelectionMode) {
+                toggleClipSelection(clip.id);
+            } else {
+                openDetail(clip);
+            }
+        };
+
+        const title = clip.custom_title || clip.title;
+        const tags = (clip.tags||"").split(',').filter(x=>x).slice(0,3).map(t=>`<span class="tag-pill">${t}</span>`).join('');
+        
+        let borderColor = 'transparent';
+        if(clip.source_status === 'online') borderColor = 'var(--online)';
+        if(clip.source_status === 'offline') borderColor = 'var(--offline)';
+        div.style.border = `1px solid ${borderColor === 'transparent' ? 'var(--border)' : borderColor}`;
+        if(borderColor !== 'transparent') div.style.boxShadow = `0 0 5px ${borderColor}33`; 
+
+        const fileSize = clip.file_size ? formatBytes(clip.file_size) : '';
+        const lastChecked = clip.last_checked ? new Date(clip.last_checked).toLocaleDateString() : '';
+        
+        let mediaHtml = '';
+        if (clip.quality_profile && clip.quality_profile.includes('audio') && clip.thumbnail) {
+            mediaHtml = `<img src="library/${clip.thumbnail}">`;
+        } else {
+            mediaHtml = `<video src="library/${clip.filename}#t=1" muted onmouseover="this.play()" onmouseout="this.pause();this.currentTime=1;"></video>`;
+        }
+
+        div.innerHTML = `
+            <div class="thumb-wrapper">${mediaHtml}</div>
+            <div class="clip-info">
+                <div class="clip-title">${title}</div>
+                <div>${tags}</div>
+                <div class="meta-row">
+                    <span>${fileSize}</span>
+                    <span>${lastChecked ? 'Chk: ' + lastChecked : ''}</span>
+                    <!-- Progress Info Placeholder -->
+                    ${activeDownloadMap[clip.id] ? 
+                        `<div class="dl-progress-bar" style="display:block"><div class="dl-progress-fill" style="width:${activeDownloadMap[clip.id].percent}"></div></div>
+                         <div style="font-size:0.65rem; display:flex; justify-content:space-between; margin-top:2px;">
+                            <span>${activeDownloadMap[clip.id].speed}</span>
+                            <span>${activeDownloadMap[clip.id].eta}</span>
+                         </div>` 
+                    : ''}
+                </div>
+            </div>`;
+        return div;
+    }
+
+    // --- Group & Profile Logic ---
+    async function resolveGroupId(inputVal) {
+        if(!inputVal) return "";
+        for(const [gid, gdata] of Object.entries(groups)) {
+            if(gdata.title.toLowerCase() === inputVal.toLowerCase()) return gid;
+        }
+        const newGid = 'grp-' + Date.now();
+        groups[newGid] = { title: inputVal, description: "" };
+        await api('/groups', 'POST', groups);
+        return newGid;
+    }
+
+    function editGroup(e, gid) {
+        e.preventDefault(); e.stopPropagation();
+        const g = groups[gid];
+        if(!g) return;
+        document.getElementById('sgId').value = gid;
+        document.getElementById('sgTitle').value = g.title;
+        document.getElementById('sgDesc').value = g.description;
+        document.getElementById('singleGroupModal').style.display='flex';
+    }
+    
+    async function saveSingleGroup() {
+        const gid = document.getElementById('sgId').value;
+        if(groups[gid]) {
+            groups[gid].title = document.getElementById('sgTitle').value;
+            groups[gid].description = document.getElementById('sgDesc').value;
+            await api('/groups', 'POST', groups);
+            closePopup('singleGroupModal');
+            refreshAllData();
+        }
+    }
+    function deleteSingleGroup() {
+        const gid = document.getElementById('sgId').value;
+        showConfirm("Delete this group? Videos will be ungrouped.", async () => {
+            if(groups[gid]) delete groups[gid];
+            await api('/groups', 'POST', groups);
+            const toUpdate = libraryData.filter(c => c.group_id === gid);
+            for(let c of toUpdate) await api('/update', 'POST', { id: c.id, group_id: "" });
+            closePopup('singleGroupModal');
+            refreshAllData();
+        });
+    }
+
+    // --- Modal Actions ---
+    function openDetail(clip) {
+        currentClipId = clip.id;
+        document.getElementById('detailModal').style.display = 'flex';
+        document.getElementById('mainPlayer').src = `library/${clip.filename}`;
+        document.getElementById('mCustomTitle').value = clip.custom_title || '';
+        document.getElementById('mOrigTitle').innerText = clip.title;
+        document.getElementById('mDesc').value = clip.description || '';
+        currentTags = (clip.tags||"").split(',').filter(x=>x);
+        renderChips('mChipContainer', currentTags);
+        const badge = document.getElementById('mStatusBadge');
+        badge.innerText = clip.source_status || 'unchecked';
+        document.getElementById('mProfileSelect').innerHTML = settings.profiles.map(p => `<option value="${p.id}" ${p.id===clip.profile_id?'selected':''}>${p.name}</option>`).join('');
+        const gName = groups[clip.group_id] ? groups[clip.group_id].title : "";
+        document.getElementById('mGroupInput').value = gName;
+        
+        // Populate new File Info fields
+        const origUrl = getTimestampUrl(clip.original_url, clip.range);
+        const urlEl = document.getElementById('mOrigUrl');
+        urlEl.href = origUrl;
+        urlEl.innerText = origUrl;
+        
+        document.getElementById('mFileId').innerText = clip.id;
+        document.getElementById('mFilename').innerText = clip.filename || '-';
+        document.getElementById('mFileSize').innerText = clip.file_size ? formatBytes(clip.file_size) : '-';
+        document.getElementById('mQuality').innerText = clip.quality_profile || '-';
+        document.getElementById('mCreated').innerText = clip.created_at ? new Date(clip.created_at).toLocaleString() : '-';
+        document.getElementById('mRange').innerText = clip.range || '-';
+    }
+    
+    function getTimestampUrl(baseUrl, rangeStr) {
+        if (!rangeStr || rangeStr === "Full Video") return baseUrl;
+        const startStr = rangeStr.split('-')[0];
+        if (!startStr) return baseUrl;
+        const seconds = parseTime(startStr);
+        if (seconds <= 0) return baseUrl;
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        return `${baseUrl}${separator}t=${seconds}`;
+    }
+    
+    function copyOrigUrl(e) {
+        const url = document.getElementById('mOrigUrl').innerText;
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const btn = e.currentTarget;
+        const originalText = btn.innerText;
+        btn.innerText = "✓";
+        setTimeout(() => btn.innerText = originalText, 1000);
+    }
+
+    async function saveMeta() {
+        const gInput = document.getElementById('mGroupInput').value.trim();
+        const finalGid = await resolveGroupId(gInput);
+        const body = {
+            id: currentClipId,
+            custom_title: document.getElementById('mCustomTitle').value,
+            description: document.getElementById('mDesc').value,
+            tags: currentTags.join(','),
+            profile_id: document.getElementById('mProfileSelect').value,
+            group_id: finalGid
+        };
+        await api('/update', 'POST', body);
+        closePopup('detailModal');
+        document.getElementById('mainPlayer').pause();
+        refreshAllData();
+    }
+
+    function confirmDeleteClip() {
+        showConfirm("Delete this clip and file permanently?", async () => {
+             const player = document.getElementById('mainPlayer');
+             player.pause(); player.removeAttribute('src'); player.load(); 
+             
+             const card = document.querySelector(`.clip-card[data-id="${currentClipId}"]`);
+             if(card) {
+                 const videoInCard = card.querySelector('video');
+                 if(videoInCard) {
+                     videoInCard.pause();
+                     videoInCard.removeAttribute('src');
+                     videoInCard.load();
+                 }
+                 card.remove(); 
+             }
+
+             closePopup('detailModal');
+             setTimeout(async () => {
+                 const res = await api('/delete', 'POST', {id: currentClipId});
+                 if(res.status !== 'deleted') { console.error("Delete failed", res); }
+                 refreshAllData();
+             }, 500); 
+        });
+    }
+
+    // --- Downloader ---
+    async function analyzeUrl() {
+        const url = document.getElementById('dlUrl').value;
+        if(!url) return;
+        const form = document.getElementById('dlOptionsForm');
+        document.getElementById('dlModal').style.display='flex';
+        form.innerHTML = 'Analyzing...';
+        
+        try {
+            const info = await api('/analyze', 'POST', {url});
+            currentAnalysis = info; // Set global
+            document.getElementById('dlTitle').innerText = (info.title || "Video Details").substring(0,50);
+            dlTags = [];
+            const duration = info.duration;
+            const hasDuration = typeof duration === 'number' && duration > 0;
+            const isList = info._type === 'playlist';
+            const videoId = info.id; 
+            
+            form.innerHTML = `
+                <!-- Video Preview -->
+                <div style="width:100%; aspect-ratio:16/9; background:black; margin-bottom:0; border-radius: 4px 4px 0 0; overflow:hidden;">
+                    <div id="yt-player"></div>
+                </div>
+
+                ${!isList && hasDuration ? `
+                <div style="background:var(--input-bg); padding:10px; border-radius: 0 0 4px 4px; border:1px solid var(--border); border-top:none; margin-bottom:15px;">
+                    <div class="timeline-container" style="margin: 5px 0 15px 0;">
+                        <div class="timeline-track" id="dlTimelineTrack" style="background-image:url('${info.thumbnail||''}')"><div class="timeline-overlay"></div></div>
+                        <div class="timeline-selection" id="dlTimelineSelection"></div>
+                        <div class="timeline-handle" id="dlHandleLeft" style="left:0%"></div>
+                        <div class="timeline-handle" id="dlHandleRight" style="left:100%"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <input type="text" id="dStart" placeholder="00:00:00" style="width:70px; text-align:center;">
+                        <span style="font-size:0.75rem; color:var(--text-muted)">Duration: ${formatTime(duration)}</span>
+                        <input type="text" id="dEnd" placeholder="${formatTime(duration)}" style="width:70px; text-align:center;">
+                    </div>
+                </div>` : (!isList ? `
+                    <div style="display:flex; gap:10px; align-items:end; margin-top:10px; margin-bottom:15px;">
+                         <div style="flex:1"><label style="font-size:0.8rem; color:var(--text-muted)">Start</label><input type="text" id="dStart" placeholder="00:01:00" style="margin:0"></div>
+                         <div style="flex:1"><label style="font-size:0.8rem; color:var(--text-muted)">End</label><input type="text" id="dEnd" placeholder="00:01:30" style="margin:0"></div>
+                    </div>` : '')}
+
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:0.8rem; color:var(--text-muted)">Custom Title</label>
+                    <input type="text" id="dlCustomTitle" placeholder="Optional" value="${(info.title||'').replace(/"/g, '&quot;')}" style="margin:0">
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div>
+                        <label style="font-size:0.8rem; color:var(--text-muted)">Profile</label>
+                        <select id="dlProfile" style="margin:0">${settings.profiles.map(p=>`<option value="${p.id}" ${p.id===currentProfile?'selected':''}>${p.name}</option>`).join('')}</select>
+                    </div>
+                    <div>
+                         <label style="font-size:0.8rem; color:var(--text-muted)">Group</label>
+                         <div class="group-dropdown-container">
+                             <input type="text" id="dlGroupInput" placeholder="Group..." autocomplete="off" style="margin:0">
+                             <div id="dlGroupSuggestions" class="tag-suggestions"></div>
+                         </div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:var(--text-muted)">Quality</label>
+                        <select id="dQuality" style="margin:0">
+                            <option value="best">Best (Default)</option>
+                            <option value="1080p">1080p</option>
+                            <option value="720p">720p</option>
+                            <option value="video_only">Video Only</option>
+                            <option value="audio_best">Audio (Best)</option>
+                            <option value="audio_low">Audio (Low)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:10px;"><label style="font-size:0.8rem; color:var(--text-muted)">Description</label><textarea id="dlDesc" rows="2" style="margin:0"></textarea></div>
+                <div><label style="font-size:0.8rem; color:var(--text-muted)">Tags</label><div class="tag-editor"><div id="dlChipContainer" style="display:contents"></div><input type="text" id="dlTagInput" class="tag-input" placeholder="Add tag..."><div id="dlTagSuggestions" class="tag-suggestions"></div></div></div>
+                <button class="btn" style="margin-top:15px; width:100%; justify-content:center;" onclick="startDownloadFromAnalysis()">Start Download</button>`;
+            
+            setupTagEditor('dlTagInput', 'dlTagSuggestions', 'dlChipContainer');
+            setupGroupAutocomplete('dlGroupInput', 'dlGroupSuggestions');
+            
+            if(window.YT && window.YT.Player) {
+                if(ytPlayer) { ytPlayer.destroy(); ytPlayer = null; }
+                ytPlayer = new YT.Player('yt-player', { height: '100%', width: '100%', videoId: videoId, host: 'https://www.youtube-nocookie.com', playerVars: { 'playsinline': 1 } });
+            }
+
+            if(!isList && hasDuration) {
+                initTimelineSlider(duration, 'dStart', 'dEnd', 'dlTimelineTrack', 'dlTimelineOverlay', 'dlTimelineSelection', 'dlHandleLeft', 'dlHandleRight');
+            }
+        } catch(e) { console.error(e); form.innerHTML = `<span style="color:var(--danger)">Error: ${e}</span>`; }
+    }
+    
+    function closeDlModal() { closePopup('dlModal'); if(ytPlayer) { ytPlayer.destroy(); ytPlayer = null; } currentAnalysis=null; }
+
+    async function startDownloadFromAnalysis() {
+        if(!currentAnalysis) return;
+        const gInput = document.getElementById('dlGroupInput').value.trim();
+        const finalGid = await resolveGroupId(gInput);
+        const info = currentAnalysis;
+
+        await api('/download', 'POST', {
+            url: info.webpage_url || info.url,
+            title: info.title,
+            custom_title: document.getElementById('dlCustomTitle').value,
+            profile_id: document.getElementById('dlProfile').value,
+            group_id: finalGid,
+            description: document.getElementById('dlDesc').value,
+            tags: dlTags.join(','),
+            start_time: document.getElementById('dStart')?.value,
+            end_time: document.getElementById('dEnd')?.value,
+            quality: document.getElementById('dQuality').value
+        });
+        closeDlModal(); document.getElementById('dlUrl').value = '';
+    }
+
+    function refreshStatus() {
+        api('/status').then(list => {
+            const el = document.getElementById('activeDownloadsList');
+            const newMap = {};
+            list.forEach(d => newMap[d.id] = d);
+            
+            if(list.length === 0) { el.innerHTML = ''; }
+            else {
+                el.innerHTML = list.map(d => `
+                    <div style="background:var(--surface-hover); padding:10px; border-radius:6px; margin-bottom:5px; border:1px solid var(--border)">
+                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom:4px;">
+                            <span style="width:70%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${d.title}</span>
+                            ${d.status === 'downloading' ? `<span style="color:var(--danger); cursor:pointer" onclick="cancelDl('${d.id}')">✖</span>` : ''}
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+                            <span>${d.status}</span>
+                            <span>${d.percent || '0%'}</span>
+                        </div>
+                        ${d.status === 'downloading' ? 
+                        `<div class="dl-progress-bar" style="display:block">
+                            <div class="${d.percent === 'indeterminate' ? 'dl-progress-fill indeterminate' : 'dl-progress-fill'}" style="width:${d.percent === 'indeterminate' ? '100%' : d.percent || '0%'}"></div>
+                        </div>
+                         <div style="font-size:0.65rem; display:flex; justify-content:space-between; margin-top:2px;">
+                            <span>${d.percent === 'indeterminate' ? `Downloaded: ${d.size || '?'} (Speed: ${d.speed || '-'})` : (d.speed || '-')}</span>
+                            <span>${d.percent === 'indeterminate' ? '' : `ETA: ${d.eta || '-'}`}</span>
+                         </div>` : ''}
+                    </div>`).join('');
+            }
+
+            // Smart Update for Cards
+            list.forEach(d => {
+                if(d.status === 'downloading') {
+                    const card = document.querySelector(`.clip-card[data-id="${d.id}"]`);
+                    if(card) {
+                        let pBar = card.querySelector('.dl-progress-bar');
+                        if(!pBar) {
+                            const metaRow = card.querySelector('.meta-row');
+                            metaRow.innerHTML += `<div class="dl-progress-bar" style="display:block; width:100%; margin-top:5px;"><div class="dl-progress-fill" style="width:0%"></div></div>`;
+                            pBar = card.querySelector('.dl-progress-bar');
+                        }
+                        const fill = pBar.querySelector('.dl-progress-fill');
+                        const isIndet = d.percent === 'indeterminate';
+                        
+                        if(isIndet) {
+                            fill.classList.add('indeterminate');
+                            fill.style.width = '100%';
+                        } else {
+                            fill.classList.remove('indeterminate');
+                            fill.style.width = d.percent || '0%';
+                        }
+                        card.classList.add('dl-active');
+                    }
+                }
+            });
+
+            // Trigger full refresh only if items changed state or list size changed significantly (finished items)
+            const oldKeys = Object.keys(activeDownloadMap || {});
+            const newKeys = list.map(x=>x.id);
+            if(oldKeys.length > newKeys.length || list.some(x => x.status === 'finished')) refreshAllData();
+            activeDownloadMap = newMap;
+        });
+    }
+
+    async function switchProfile(pid) { currentProfile = pid; renderLibrary(); }
+    function closePopup(id) { document.getElementById(id).style.display='none'; }
+    function filterLibrary() { renderLibrary(); }
+    // Define global cancelDl function so it can be called from onclick
+    window.cancelDl = function(id) { showConfirm("Stop download?", async () => await api('/cancel', 'POST', {id})); }
+
+    // --- Misc Profile/Settings logic ---
+    function openProfileManager() {
+        document.getElementById('profileList').innerHTML = settings.profiles.map(p => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px; border-bottom:1px solid var(--border);">
+                <span>${p.name}</span>
+                ${p.id !== 'default' ? `<button class="btn danger btn-small" onclick="deleteProfile('${p.id}')">Delete</button>` : '<i>(Default)</i>'}
+            </div>`).join('');
+        document.getElementById('profileModal').style.display='flex';
+    }
+    async function createNewProfile() {
+        const name = document.getElementById('newProfileName').value.trim();
+        if(!name) return;
+        const id = name.toLowerCase().replace(/\s+/g, '-');
+        settings.profiles.push({ id, name });
+        await api('/settings', 'POST', settings);
+        document.getElementById('newProfileName').value = '';
+        openProfileManager(); renderProfileSelect();
+    }
+    function deleteProfile(id) { showConfirm("Delete profile?", async () => { settings.profiles = settings.profiles.filter(p => p.id !== id); await api('/settings', 'POST', settings); openProfileManager(); renderProfileSelect(); }); }
+
+    function openSettings() {
+        document.getElementById('settingsTags').innerHTML = settings.tags.map(t => `<button class="btn secondary btn-small" onclick="removeGlobalTag('${t}')">${t} ×</button>`).join('');
+        document.getElementById('settingsModal').style.display='flex';
+    }
+    async function addNewGlobalTag() {
+        const val = document.getElementById('newTagInput').value.trim();
+        if(val && !settings.tags.includes(val)) { settings.tags.push(val); await api('/settings', 'POST', settings); document.getElementById('newTagInput').value = ''; openSettings(); }
+    }
+    async function removeGlobalTag(t) { settings.tags = settings.tags.filter(x=>x!==t); await api('/settings', 'POST', settings); openSettings(); }
+    
+    function openGroupManager() {
+        renderGroupList();
+        document.getElementById('groupModal').style.display='flex';
+    }
+    function renderGroupList() {
+        const list = document.getElementById('groupList');
+        const allGids = new Set([...Object.keys(groups)]); 
+        list.innerHTML = Array.from(allGids).map(gid => {
+            const gMeta = groups[gid];
+            const count = libraryData.filter(c => c.group_id === gid).length;
+            return `
+                <div style="background:var(--input-bg); padding:10px; margin-bottom:10px; border-radius:6px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <input type="text" value="${gMeta.title}" id="gtitle-${gid}" style="width:60%; margin:0">
+                        <span style="font-size:0.8rem; color:var(--text-muted)">${count} clips</span>
+                    </div>
+                    <textarea id="gdesc-${gid}" rows="2" style="margin:0">${gMeta.description}</textarea>
+                    <div style="text-align:right; margin-top:5px; display:flex; justify-content:flex-end; gap:10px;">
+                        <button class="btn danger btn-small" onclick="deleteGroup('${gid}')">Delete</button>
+                        <button class="btn btn-small" onclick="saveGroupMeta('${gid}')">Save</button>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+    async function createNewGroupManual() {
+        const title = document.getElementById('newGroupTitleInput').value.trim();
+        if(!title) return;
+        const newGid = 'grp-' + Date.now();
+        groups[newGid] = { title: title, description: "" };
+        await api('/groups', 'POST', groups);
+        document.getElementById('newGroupTitleInput').value = '';
+        renderGroupList();
+        refreshAllData();
+    }
+    function deleteGroup(gid) {
+        showConfirm("Delete group?", async () => {
+            if(groups[gid]) delete groups[gid];
+            await api('/groups', 'POST', groups);
+            const toUpdate = libraryData.filter(c => c.group_id === gid);
+            for(let c of toUpdate) await api('/update', 'POST', { id: c.id, group_id: "" });
+            refreshAllData();
+            renderGroupList();
+        });
+    }
+    async function saveGroupMeta(gid) {
+        if(!groups[gid]) groups[gid] = {};
+        groups[gid].title = document.getElementById(`gtitle-${gid}`).value;
+        groups[gid].description = document.getElementById(`gdesc-${gid}`).value;
+        await api('/groups', 'POST', groups);
+        refreshAllData();
+    }
+    async function checkAllAvailability() {
+        const btn = event.target; btn.disabled = true; btn.innerText = "Checking...";
+        const subset = libraryData.filter(c => c.profile_id === currentProfile);
+        for(let clip of subset) {
+            const res = await api('/check_source', 'POST', {url: clip.original_url});
+            const status = res.available ? 'online' : 'offline';
+            await api('/update', 'POST', { id: clip.id, source_status: status, last_checked: new Date().toISOString() });
+        }
+        await refreshAllData(); btn.innerText = "Check All Availability"; btn.disabled = false;
+    }
+</script>
+</body>
+</html>
