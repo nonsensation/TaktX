@@ -1,0 +1,8 @@
+# Ignore backup executable files
+*.exe
+
+# Ignore the library directory and its contents
+library/
+
+# Ignore local configuration/settings
+*.json
